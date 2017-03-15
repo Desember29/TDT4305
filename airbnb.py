@@ -32,7 +32,7 @@ listingsDF.printSchema()
 neighbourhoodsDF.printSchema()
 reviewsDF.printSchema()
 """
-
+"""
 #2. b)
 #distinctValueCount = listingsDF.rdd.map(lambda listing: ((column for column in listingsDF.schema.names), (listing.Column(column for column in listingsDF.schema.names))))
 
@@ -59,7 +59,7 @@ output = open("output.txt", "w")
 for key in distinctValuesPerColumn:
 	output.write(str(key) + "\t" + str(distinctValuesPerColumn[key]) + "\n")
 output.close()
-
+"""
 """
 #2. c)
 cities = listingsDF.select("city").distinct()
@@ -93,8 +93,45 @@ priceAveragePerRoomInCityRDD = priceAveragePerRoomInCityRDD.map(lambda listing: 
 priceAveragePerRoomInCityRDD = priceAveragePerRoomInCityRDD.mapValues(lambda row: row[0]/row[1]).collect()
 print priceAveragePerRoomInCityRDD
 """
+"""
+#3. c)
+reviewAveragePerCityRDD = listingsDF.select("city", "reviews_per_month").rdd.map(lambda listing: (listing.city, 0 if listing.reviews_per_month==None else float("".join(c for c in listing.reviews_per_month if c not in "$,"))))
+reviewAveragePerCityRDD = reviewAveragePerCityRDD.aggregateByKey((0, 0), lambda city, revPerMonth: (city[0] + revPerMonth, city[1] + 1), lambda city, revPerMonth: (city[0] + revPerMonth[0], city[1] + revPerMonth[1]))
+reviewAveragePerCityRDD = reviewAveragePerCityRDD.mapValues(lambda row: row[0]/row[1]).collect()
+print reviewAveragePerCityRDD
+"""
 
+"""
+#4. a)
+totalListings = float(listingsDF.select("id").distinct().count())
+totalHosts = float(listingsDF.select("host_id").distinct().count())
+averageListingsPerHost = float(totalListings/totalHosts)
+print averageListingsPerHost
+"""
 
+"""
+#4. b)
+listForPercentage = listingsDF.select("host_id","host_listings_count").rdd
+percentageOfHostsWithMultipleListings = float(listForPercentage.map(lambda x: (x.host_id,0) if x.host_listings_count==None else (x.host_id,x.host_listings_count)).filter(lambda x: float(x[1]) >= 2).count())/float(listForPercentage.distinct().count())
+print percentageOfHostsWithMultipleListings
+"""
+
+"""
+#4. c)
+listingsTable = listingsDF.select("id","city","host_id","price")
+calendarTable = calendarDF.select("listing_id","date","available").rdd.filter(lambda x: x.available=="f").map(lambda x: (x[0],x[1])).countByKey()
+print calendarTable
+#.rdd.map(lambda x: (x.listing_id, x.date, 1 if x.available=="t" else 0)).filter(lambda x: int(x[2]) == 1).map(lambda x: (x[0],(x[1],x[2]))).aggregateByKey((0,0),lambda a,b: (a[0]+b[1],a[1]+1),lambda a,b: (a[0]+b[1][0],a[1]+b[1][1])).collect()
+#print calendarTable
+topHostIncome = listingsTable.join(calendarTable, listingsTable.id == calendarTable.listing_id)
+#.rdd.filter(lambda x: x.available=="f").map(lambda x: ((x[0],x[1],x[2],x[3],x[4]),x[5])).countByKey()
+#.aggregateByKey((0,0),lambda a,b: (a[0]+b,a[1]+1),lambda a,b: (a[0]+b[0],a[1]+b[1]))
+
+#print topHostIncome.take(10)
+
+#calendarDF.printSchema()
+#print calendarDF.select("date","available").take(20)
+"""
 
 """
 cities = listingsDF.select("city","region_name","smart_location","state","street").distinct().collect()
