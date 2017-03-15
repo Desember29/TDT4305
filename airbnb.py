@@ -25,14 +25,15 @@ neighbourhoodsDF = sqlContext.read.json(neighLoc)
 reviewsDF = sqlContext.read.csv(revLoc, sep="\t", header=True)
 #listings = sc.textFile(lisLoc)
 
-"""
-#To print schemas
-calendarDF.printSchema()
-listingsDF.printSchema()
-neighbourhoodsDF.printSchema()
-reviewsDF.printSchema()
-"""
 
+#To print schemas
+#calendarDF.printSchema()
+listingsDF.printSchema()
+#neighbourhoodsDF.printSchema()
+reviewsDF.printSchema()
+
+
+"""
 #2. b)
 #distinctValueCount = listingsDF.rdd.map(lambda listing: ((column for column in listingsDF.schema.names), (listing.Column(column for column in listingsDF.schema.names))))
 
@@ -59,7 +60,7 @@ output = open("output.txt", "w")
 for key in distinctValuesPerColumn:
 	output.write(str(key) + "\t" + str(distinctValuesPerColumn[key]) + "\n")
 output.close()
-
+"""
 """
 #2. c)
 cities = listingsDF.select("city").distinct()
@@ -95,6 +96,27 @@ print priceAveragePerRoomInCityRDD
 """
 
 
+"""
+#3. d)
+numberOfNightsBookedPerYearRDD = listingsDF.select("city", "reviews_per_month").rdd.map(lambda listing: (listing.city, (float(0 if listing.reviews_per_month == None else listing.reviews_per_month) / 0.7) * 3 * 12))
+numberOfNightsBookedPerYearRDD = numberOfNightsBookedPerYearRDD.aggregateByKey((0, 0), lambda city, booking: (city[0] + booking, city[1] + 1), lambda city, booking: (city[0] + booking[0], city[1] + booking[1]))
+numberOfNightsBookedPerYearRDD = numberOfNightsBookedPerYearRDD.mapValues(lambda row: row[0]/row[1]).collect()
+print numberOfNightsBookedPerYearRDD
+
+#3. e)
+totalPricePerYearRDD = listingsDF.select("city", "reviews_per_month", "price").rdd.map(lambda listing: (listing.city, (float(0 if listing.reviews_per_month == None else listing.reviews_per_month) / 0.7) * 3 * 12 * float("".join(c for c in listing.price if c not in "$,"))))
+totalPricePerYearRDD = totalPricePerYearRDD.reduceByKey(lambda x, y: x + y).collect()
+print totalPricePerYearRDD
+"""
+
+"""
+#5. a)
+topGuestsRDD = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).where(reviewsDF.reviewer_id == "7107853").select("city", "reviewer_id").rdd.map(lambda row: ((row.city, row.reviewer_id), 1)).collect()	
+
+#topGuestsRDD = topGuestsRDD.aggregateByKey((0, 0), lambda x, y: (x[0] + y, x[1] + 1), lambda x, y: (x[0] + y[0], x[1] + y[1])).collect()
+
+print topGuestsRDD
+"""
 
 """
 cities = listingsDF.select("city","region_name","smart_location","state","street").distinct().collect()
