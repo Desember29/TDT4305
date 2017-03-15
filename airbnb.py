@@ -47,7 +47,7 @@ reviewsDF.printSchema()
 
 #counts.saveAsTextFile("distinctCounts")
 
-"""
+
 #Temporary fix to problem, attempting to figure out way to 
 distinctValuesPerColumn = OrderedDict()
 for column in listingsDF.schema.names:
@@ -59,7 +59,7 @@ output = open("output.txt", "w")
 for key in distinctValuesPerColumn:
 	output.write(str(key) + "\t" + str(distinctValuesPerColumn[key]) + "\n")
 output.close()
-"""
+
 """
 #2. c)
 cities = listingsDF.select("city").distinct()
@@ -85,6 +85,16 @@ for item in pricesForNewYork:
 averageForNewYork = totalPrice/counter
 print "Average price for New York is " + str(averageForNewYork)
 """
+
+"""
+#3. b)
+priceAveragePerRoomInCityRDD = listingsDF.select("city", "room_type", "price").rdd.map(lambda listing: (listing.city, listing.room_type, float("".join(c for c in listing.price if c not in "$,"))))
+priceAveragePerRoomInCityRDD = priceAveragePerRoomInCityRDD.map(lambda listing: ((listing[0],listing[1]), listing[2])).aggregateByKey((0,0),lambda a,b: (a[0]+b,a[1]+1),lambda a,b: (a[0]+b[0],a[1]+b[1]))
+priceAveragePerRoomInCityRDD = priceAveragePerRoomInCityRDD.mapValues(lambda row: row[0]/row[1]).collect()
+print priceAveragePerRoomInCityRDD
+"""
+
+
 
 """
 cities = listingsDF.select("city","region_name","smart_location","state","street").distinct().collect()
