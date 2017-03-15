@@ -1,7 +1,9 @@
 from pyspark import SparkContext, SparkConf
 from pyspark import SQLContext
-from pyspark.sql import functions
 from collections import OrderedDict
+from pyspark.sql import Column
+from pyspark.sql.functions import avg
+from pyspark.sql.types import StructType
 import sys
 #import org.apache.spark.sql.functions.{lower, upper}
 
@@ -21,9 +23,7 @@ calendarDF = sqlContext.read.csv(calLoc, sep="\t", header=True)
 listingsDF = sqlContext.read.csv(lisLoc, sep="\t", header=True)
 neighbourhoodsDF = sqlContext.read.json(neighLoc)
 reviewsDF = sqlContext.read.csv(revLoc, sep="\t", header=True)
-listings = sc.textFile(lisLoc)
-
-listingsDF.printSchema()
+#listings = sc.textFile(lisLoc)
 
 """
 #To print schemas
@@ -34,49 +34,72 @@ reviewsDF.printSchema()
 """
 
 #2. b)
-"""counts = None
-for column in listingsDF.schema.names:
-    counts.union(listingsDF.select(column).na.drop().rdd.map(lambda x: (column,str(x).upper())).distinct().count())
-    
-counts.saveAsTextFile("distinctCounts")"""
+#distinctValueCount = listingsDF.rdd.map(lambda listing: ((column for column in listingsDF.schema.names), (listing.Column(column for column in listingsDF.schema.names))))
 
+#distinctValueCount = listingsDF.rdd.map(lambda listing: ((column for column in listingsDF.schema.names), ((column for column in listingsDF.schema.names).distinct().count()))).take(5)
+#for column in listingsDF.schema.names:
+#    counts.union(listingsDF.select(column).na.drop().rdd.map(lambda x: (column,str(x).upper())).distinct().count())
+
+#for column in listingsDF.schema.names:
+#	result = listingsDF.rdd.map(lambda row: (column, (row.Column(column).distinct().count())))
+#	result.take(5)
+	
+
+#counts.saveAsTextFile("distinctCounts")
+
+"""
+#Temporary fix to problem, attempting to figure out way to 
 distinctValuesPerColumn = OrderedDict()
 for column in listingsDF.schema.names:
 	distinctValuesPerColumn[column] = listingsDF.select(column).na.drop().rdd.map(lambda x: str(x).upper()).distinct().count()
-
 print "Distinct values per field:"
 print distinctValuesPerColumn
-"""
-"""
 #To write a tab seperated field-value pair
 output = open("output.txt", "w")
 for key in distinctValuesPerColumn:
 	output.write(str(key) + "\t" + str(distinctValuesPerColumn[key]) + "\n")
 output.close()
-
-
+"""
+"""
 #2. c)
-#cities = listingsDF.select("city").distinct()
-#cities.rdd.map(lambda p: unicode(p[0])).coalesce(1).saveAsTextFile("citiesResults")
+cities = listingsDF.select("city").distinct()
+cities.rdd.map(lambda p: unicode(p[0])).coalesce(1).saveAsTextFile("citiesResults")
+"""
 
-
-#listingsDF.select("market").distinct().show()
-
+"""
 #3. a)
-#cities = listingsDF.select("city","region_name","smart_location","state","street").distinct().collect()
-#cities = listingsDF.select("state").rdd.flatMap(lambda x: x).distinct().collect()
-#cities = listingsDF.select("smart_location").rdd.flatMap(lambda x: x).distinct().collect()
+priceAveragePerCityRDD = listingsDF.select("city", "price").rdd.map(lambda listing: (listing.city, float("".join(c for c in listing.price if c not in "$,"))))
+priceAveragePerCityRDD = priceAveragePerCityRDD.aggregateByKey((0, 0), lambda city, price: (city[0] + price, city[1] + 1), lambda city, price: (city[0] + price[0], city[1] + price[1]))
+priceAveragePerCityRDD = priceAveragePerCityRDD.mapValues(lambda row: row[0]/row[1]).collect()
+print priceAveragePerCityRDD
+"""
+"""
+#Verification function to find average price in New York, only for testing/debugging of code above
+pricesForNewYork = listingsDF.where(listingsDF.city == "New York").select("price").rdd.map(lambda listing: float("".join(c for c in listing.price if c not in "$,"))).collect()
+counter = 0
+totalPrice = 0
+for item in pricesForNewYork:
+	counter += 1
+	totalPrice += item
 
-#cities = listingsDF.select("state").rdd.map(lambda x: str(x.state).upper()).distinct().collect()
-#cities = listingsDF.na.drop(subset=["state"]).select("state").rdd.map(lambda x: str(x.state).upper()).distinct().collect()
+averageForNewYork = totalPrice/counter
+print "Average price for New York is " + str(averageForNewYork)
+"""
 
-#cities = listingsDF.select("state").na.drop().rdd.map(lambda x: str(x.state).upper()).distinct().collect()
+"""
+cities = listingsDF.select("city","region_name","smart_location","state","street").distinct().collect()
+cities = listingsDF.select("state").rdd.flatMap(lambda x: x).distinct().collect()
+cities = listingsDF.select("smart_location").rdd.flatMap(lambda x: x).distinct().collect()
 
-#cities = listingsDF.select("state").na.drop().rdd.map(lambda x: "NY" if str(x.state).upper()=="NEW YORK" else str(x.state).upper()).distinct().collect()
-#cities = cities.withColumn("state", functions.when(cities["state"]=="NEW YORK", "NY").otherwise(cities["state"])).distinct().collect()
+cities = listingsDF.select("state").rdd.map(lambda x: str(x.state).upper()).distinct().collect()
+cities = listingsDF.na.drop(subset=["state"]).select("state").rdd.map(lambda x: str(x.state).upper()).distinct().collect()
 
-#for c in cities:
-#    print c
-#pricePerCity = listingsDF.rdd.map(lambda c: for 
+cities = listingsDF.select("state").na.drop().rdd.map(lambda x: str(x.state).upper()).distinct().collect()
 
+cities = listingsDF.select("state").na.drop().rdd.map(lambda x: "NY" if str(x.state).upper()=="NEW YORK" else str(x.state).upper()).distinct().collect()
+cities = cities.withColumn("state", functions.when(cities["state"]=="NEW YORK", "NY").otherwise(cities["state"])).distinct().collect()
 
+for c in cities:
+    print c
+pricePerCity = listingsDF.rdd.map(lambda c: for 
+"""
