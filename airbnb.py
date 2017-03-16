@@ -59,6 +59,7 @@ print cities
 '''
 """
 
+
 #3. a)
 """
 priceAveragePerCityRDD = listingsDF.select("city", "price").rdd.map(lambda listing: (listing.city, float("".join(c for c in listing.price if c not in "$,"))))
@@ -146,6 +147,8 @@ topHostIncome = listingsTable.join(calendarTable, listingsTable.id == calendarTa
 
 
 #5. a)
+#Test reviewer_id used to test results.
+#.where(reviewsDF.reviewer_id == "7107853")
 """
 topGuestsRDD = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("city", "reviewer_id").rdd.map(lambda row: ((row.city, int(row.reviewer_id)), 1)).reduceByKey(lambda x, y: x + y).map(lambda x: (x[0][0], (x[0][1], x[1]))).sortBy(lambda x: -x[1][1]).groupByKey().mapValues(list).collect()
 
@@ -163,5 +166,6 @@ print topGuestsByCity
 
 #5. b)
 """
-
+biggestSpender = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("reviewer_id", "listing_id", "price").rdd.map(lambda row: ((int(row.reviewer_id), int(row.listing_id)), float("".join(c for c in row.price if c not in "$,")))).reduceByKey(lambda x, y: x + y).map(lambda x: (x[0][0], x[1])).reduceByKey(lambda x, y: x + y).top(1, key = lambda x: x[1])
+print biggestSpender
 """
