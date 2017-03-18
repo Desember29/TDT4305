@@ -1,6 +1,7 @@
 from pyspark import SparkContext, SparkConf
 from pyspark import SQLContext
 from collections import OrderedDict
+from operator import add
 from pyspark.sql import Column
 from pyspark.sql.functions import avg
 from pyspark.sql.types import StructType
@@ -129,22 +130,8 @@ percentageOfHostsWithMultipleListings = float(listForPercentage.map(lambda x: (x
 print percentageOfHostsWithMultipleListings
 """
 
-"""
-#4. c)
-listingsTable = listingsDF.select("id","city","host_id","price")
-calendarTable = calendarDF.select("listing_id","date","available").rdd.filter(lambda x: x.available=="f").map(lambda x: (x[0],x[1])).countByKey()
-print calendarTable
-#.rdd.map(lambda x: (x.listing_id, x.date, 1 if x.available=="t" else 0)).filter(lambda x: int(x[2]) == 1).map(lambda x: (x[0],(x[1],x[2]))).aggregateByKey((0,0),lambda a,b: (a[0]+b[1],a[1]+1),lambda a,b: (a[0]+b[1][0],a[1]+b[1][1])).collect()
-#print calendarTable
-topHostIncome = listingsTable.join(calendarTable, listingsTable.id == calendarTable.listing_id)
-#.rdd.filter(lambda x: x.available=="f").map(lambda x: ((x[0],x[1],x[2],x[3],x[4]),x[5])).countByKey()
-#.aggregateByKey((0,0),lambda a,b: (a[0]+b,a[1]+1),lambda a,b: (a[0]+b[0],a[1]+b[1]))
 
-#print topHostIncome.take(10)
 
-#calendarDF.printSchema()
-#print calendarDF.select("date","available").take(20)
-"""
 """
 #5. a)
 topGuestsRDD = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("city", "reviewer_id").rdd.map(lambda row: (row.city, int(row.reviewer_id)))
