@@ -1,6 +1,8 @@
 from pyspark import SparkContext, SparkConf
 from pyspark import SQLContext
+from pyspark.sql.functions import explode
 from collections import OrderedDict
+from shapely.geometry import Polygon
 import sys
 
 reload(sys)
@@ -17,6 +19,7 @@ revLoc = "airbnb_datasets/reviews_us.csv"
 
 calendarDF = sqlContext.read.csv(calLoc, sep="\t", header=True)
 listingsDF = sqlContext.read.csv(lisLoc, sep="\t", header=True)
+
 neighbourhoodsDF = sqlContext.read.json(neighLoc)
 reviewsDF = sqlContext.read.csv(revLoc, sep="\t", header=True)
 
@@ -169,3 +172,10 @@ print topGuestsByCity
 biggestSpender = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("reviewer_id", "listing_id", "price").rdd.map(lambda row: ((int(row.reviewer_id), int(row.listing_id)), float("".join(c for c in row.price if c not in "$,")))).reduceByKey(lambda x, y: x + y).map(lambda x: (x[0][0], x[1])).reduceByKey(lambda x, y: x + y).top(1, key = lambda x: x[1])
 print biggestSpender
 """
+
+
+#6. a)
+neighbourhoodsDF = neighbourhoodsDF.select(explode("features")).rdd.map(lambda row: (str(row[0][1][0]), row[0][0][0][0][0])).take(3)
+print neighbourhoodsDF
+#testDF = neighbourhoodsDF.rdd.map(lambda row: int(row["features"]["properties"]["neighbourhood"]))
+#print testDF
