@@ -5,7 +5,7 @@ from pyspark.sql.functions import explode, udf
 from pyspark.sql.types import StringType
 from collections import OrderedDict
 from operator import add
-from shapely.geometry import Polygon, Point
+#from shapely.geometry import Polygon, Point
 import sys
 
 reload(sys)
@@ -182,6 +182,21 @@ for city in topGuestsRDD:
 			topGuestsByCity[city[0]] = [city[1][n]]
 
 print topGuestsByCity
+'''
+#The following code is for writing to file
+import csv
+
+keys, values = [], []
+
+for key, value in topGuestsByCity.items():
+    keys.append(key)
+    values.append(value)       
+
+with open("task5a.csv", "w") as outfile:
+    csvwriter = csv.writer(outfile)
+    for n in range(len(keys)):
+        csvwriter.writerow([keys[n],values[n]])
+'''
 """
 
 #5. b)
