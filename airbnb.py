@@ -85,10 +85,10 @@ def task3a():
 def task3b():
 	priceAveragePerRoomInCityRDD = listingsDF.select("city", "room_type", "price").rdd.map(lambda listing: ((listing.city, listing.room_type), float("".join(c for c in listing.price if c not in "$,"))))
 	priceAveragePerRoomInCityRDD = priceAveragePerRoomInCityRDD.aggregateByKey((0,0),lambda a,b: (a[0]+b,a[1]+1),lambda a,b: (a[0]+b[0],a[1]+b[1]))
-	priceAveragePerRoomInCityRDD = priceAveragePerRoomInCityRDD.mapValues(lambda row: row[0]/row[1])#.map(lambda x: (x[0][0],x[0][1],x[1]))
+	priceAveragePerRoomInCityRDD = priceAveragePerRoomInCityRDD.mapValues(lambda row: row[0]/row[1])
 	priceAveragePerRoomInCityRDD.map(lambda x: (x[0][0],x[0][1],x[1])).toDF().coalesce(1).write.csv('task3b.csv')
 
-#TODO: Joakim fyll inn
+#For every city, we sum reviews per month and divide on amount of listings in that city.
 def task3c():
 	reviewAveragePerCityRDD = listingsDF.select("city", "reviews_per_month").rdd.map(lambda listing: (listing.city, float(0 if listing.reviews_per_month==None else listing.reviews_per_month)))
 	reviewAveragePerCityRDD = reviewAveragePerCityRDD.aggregateByKey((0, 0), lambda city, revPerMonth: (city[0] + revPerMonth, city[1] + 1), lambda city, revPerMonth: (city[0] + revPerMonth[0], city[1] + revPerMonth[1]))
@@ -110,20 +110,20 @@ def task3e():
 
 
 
-#TODO: Joakim fyll inn
+#Count amount of host and amount of listings, then divided amount of listings on amount of hosts.
 def task4a():
 	totalListings = float(listingsDF.select("id").distinct().count())
 	totalHosts = float(listingsDF.select("host_id").distinct().count())
 	averageListingsPerHost = float(totalListings/totalHosts)
 	print averageListingsPerHost
 
-#TODO: Joakim fyll inn
+#Stores a RDD in a variable and uses that twice. First time all hosts with one or less listings and secondly counting every host. Then dividing the first with the second.
 def task4b():
 	listForPercentage = listingsDF.select("host_id","host_listings_count").rdd
 	percentageOfHostsWithMultipleListings = float(listForPercentage.map(lambda x: (x.host_id,0) if x.host_listings_count==None else (x.host_id,x.host_listings_count)).filter(lambda x: float(x[1]) >= 2).count())/float(listForPercentage.distinct().count())
 	print percentageOfHostsWithMultipleListings
 
-#TODO: Joakim fyll inn
+#Joining two DataFrames together and reducing the key whilst calculating and creating a RDD where for every key, we would see which three host had the most income based on when their listings were not available.
 def task4c():
 	listingsTable = listingsDF.select("id","city","host_id","price")
 	calendarTable = calendarDF.select("listing_id","date","available")
