@@ -92,3 +92,4 @@ ENV/
 airbnb_datasets/
 citiesResults/
 spark-warehouse/
+differenceInNeighbourhoodsResults/
