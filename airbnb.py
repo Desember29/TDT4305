@@ -1,6 +1,7 @@
 from pyspark import SparkContext, SparkConf
 from pyspark import SQLContext
 from pyspark.sql.functions import explode
+from pyspark.sql import Row
 from collections import OrderedDict
 from operator import add
 #from shapely.geometry import Polygon
@@ -68,8 +69,10 @@ print cities
 """
 priceAveragePerCityRDD = listingsDF.select("city", "price").rdd.map(lambda listing: (listing.city, float("".join(c for c in listing.price if c not in "$,"))))
 priceAveragePerCityRDD = priceAveragePerCityRDD.aggregateByKey((0, 0), lambda city, price: (city[0] + price, city[1] + 1), lambda city, price: (city[0] + price[0], city[1] + price[1]))
-priceAveragePerCityRDD = priceAveragePerCityRDD.mapValues(lambda row: row[0] / row[1]).collect()
-print priceAveragePerCityRDD
+priceAveragePerCityRDD = priceAveragePerCityRDD.mapValues(lambda row: row[0] / row[1])
+print priceAveragePerCityRDD.collect()
+
+#priceAveragePerCityRDD.toDF().coalesce(1).write.csv('task3a.csv')
 
 #Verification function to find average price in New York, only for testing/debugging of code above
 '''
@@ -89,31 +92,35 @@ print "Average price for New York is " + str(averageForNewYork)
 """
 priceAveragePerRoomInCityRDD = listingsDF.select("city", "room_type", "price").rdd.map(lambda listing: ((listing.city, listing.room_type), float("".join(c for c in listing.price if c not in "$,"))))
 priceAveragePerRoomInCityRDD = priceAveragePerRoomInCityRDD.aggregateByKey((0,0),lambda a,b: (a[0]+b,a[1]+1),lambda a,b: (a[0]+b[0],a[1]+b[1]))
-priceAveragePerRoomInCityRDD = priceAveragePerRoomInCityRDD.mapValues(lambda row: row[0]/row[1]).collect()
-print priceAveragePerRoomInCityRDD
+priceAveragePerRoomInCityRDD = priceAveragePerRoomInCityRDD.mapValues(lambda row: row[0]/row[1])#.map(lambda x: (x[0][0],x[0][1],x[1]))
+print priceAveragePerRoomInCityRDD.collect()
+#priceAveragePerRoomInCityRDD.map(lambda x: (x[0][0],x[0][1],x[1])).toDF().coalesce(1).write.csv('task3b.csv')
 """
 
 #3. c)
 """
 reviewAveragePerCityRDD = listingsDF.select("city", "reviews_per_month").rdd.map(lambda listing: (listing.city, 0 if listing.reviews_per_month==None else float("".join(c for c in listing.reviews_per_month if c not in "$,"))))
 reviewAveragePerCityRDD = reviewAveragePerCityRDD.aggregateByKey((0, 0), lambda city, revPerMonth: (city[0] + revPerMonth, city[1] + 1), lambda city, revPerMonth: (city[0] + revPerMonth[0], city[1] + revPerMonth[1]))
-reviewAveragePerCityRDD = reviewAveragePerCityRDD.mapValues(lambda row: row[0]/row[1]).collect()
-print reviewAveragePerCityRDD
+reviewAveragePerCityRDD = reviewAveragePerCityRDD.mapValues(lambda row: row[0]/row[1])
+print reviewAveragePerCityRDD.collect()
+#reviewAveragePerCityRDD.toDF().coalesce(1).write.csv('task3c.csv')
 """
 
 #3. d)
 """
 numberOfNightsBookedPerYearRDD = listingsDF.select("city", "reviews_per_month").rdd.map(lambda listing: (listing.city, (float(0 if listing.reviews_per_month == None else listing.reviews_per_month) / 0.7) * 3 * 12))
 numberOfNightsBookedPerYearRDD = numberOfNightsBookedPerYearRDD.aggregateByKey((0, 0), lambda city, booking: (city[0] + booking, city[1] + 1), lambda city, booking: (city[0] + booking[0], city[1] + booking[1]))
-numberOfNightsBookedPerYearRDD = numberOfNightsBookedPerYearRDD.mapValues(lambda row: row[0]/row[1]).collect()
-print numberOfNightsBookedPerYearRDD
+numberOfNightsBookedPerYearRDD = numberOfNightsBookedPerYearRDD.mapValues(lambda row: row[0]/row[1])
+print numberOfNightsBookedPerYearRDD.collect()
+#numberOfNightsBookedPerYearRDD.toDF().coalesce(1).write.csv('task3d.csv')
 """
 
 #3. e)
 """
 totalPricePerYearRDD = listingsDF.select("city", "reviews_per_month", "price").rdd.map(lambda listing: (listing.city, (float(0 if listing.reviews_per_month == None else listing.reviews_per_month) / 0.7) * 3 * 12 * float("".join(c for c in listing.price if c not in "$,"))))
-totalPricePerYearRDD = totalPricePerYearRDD.reduceByKey(lambda x, y: x + y).collect()
-print totalPricePerYearRDD
+totalPricePerYearRDD = totalPricePerYearRDD.reduceByKey(lambda x, y: x + y)
+print totalPricePerYearRDD.collect()
+#totalPricePerYearRDD.toDF().coalesce(1).write.csv('task3e.csv')
 """
 
 
@@ -160,7 +167,7 @@ print topHostPerCity
 #5. a)
 #Test reviewer_id used to test results.
 #.where(reviewsDF.reviewer_id == "7107853")
-"""
+
 topGuestsRDD = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("city", "reviewer_id").rdd.map(lambda row: ((row.city, int(row.reviewer_id)), 1)).reduceByKey(lambda x, y: x + y).map(lambda x: (x[0][0], (x[0][1], x[1]))).sortBy(lambda x: -x[1][1]).groupByKey().mapValues(list).collect()
 
 topGuestsByCity = OrderedDict()
@@ -173,7 +180,31 @@ for city in topGuestsRDD:
 			topGuestsByCity[city[0]] = [city[1][n]]
 
 print topGuestsByCity
+
+#The following code is made just in order to write to file
+import csv
+
+keys, values = [], []
+
+for key, value in topGuestsByCity.items():
+    keys.append(key)
+    values.append(value)       
+
+with open("task5a.csv", "w") as outfile:
+    csvwriter = csv.writer(outfile)
+    for n in range(len(keys)):
+        csvwriter.writerow(keys[n]+values[n])
+
 """
+keys = ('San Francisco','New York','Seattle')
+row = Row(*keys)
+
+rdd = sc.parallelize(topGuestsByCity)
+print rdd.collect()
+"""
+#printToFile = pd.DataFrame.from_dict(topGuestsByCity).coalesce(1).write.csv('task5a.csv')
+#topGuestsByCity.toDF().coalesce(1).write.csv('task5a.csv')
+
 
 #5. b)
 """
