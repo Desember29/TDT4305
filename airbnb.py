@@ -1,9 +1,10 @@
 from pyspark import SparkContext, SparkConf
 from pyspark import SQLContext
-from pyspark.sql.functions import explode
+from pyspark.sql.functions import explode, udf
+from pyspark.sql.types import StringType
 from collections import OrderedDict
 from operator import add
-#from shapely.geometry import Polygon
+from shapely.geometry import Polygon, Point
 import sys
 
 reload(sys)
@@ -15,12 +16,13 @@ sqlContext = SQLContext(sc)
 
 calLoc = "airbnb_datasets/calendar_us.csv"
 lisLoc = "airbnb_datasets/listings_us.csv"
+neighTestLoc = "airbnb_datasets/neighborhood_test.csv"
 neighLoc = "airbnb_datasets/neighbourhoods.geojson"
 revLoc = "airbnb_datasets/reviews_us.csv"
 
 calendarDF = sqlContext.read.csv(calLoc, sep="\t", header=True)
 listingsDF = sqlContext.read.csv(lisLoc, sep="\t", header=True)
-
+neighbourhoodTestDF = sqlContext.read.csv(neighTestLoc, sep="\t", header=True)
 neighbourhoodsDF = sqlContext.read.json(neighLoc)
 reviewsDF = sqlContext.read.csv(revLoc, sep="\t", header=True)
 
@@ -184,8 +186,31 @@ print biggestSpender
 
 #6. a)
 """
-neighbourhoodsDF = neighbourhoodsDF.select(explode("features")).rdd.map(lambda row: (str(row[0][1][0]), row[0][0][0][0][0])).take(3)
-print neighbourhoodsDF
-#testDF = neighbourhoodsDF.rdd.map(lambda row: int(row["features"]["properties"]["neighbourhood"]))
-#print testDF
+neighbourhoodsDF = neighbourhoodsDF.select(explode("features")).rdd.map(lambda row: ((str(row[0][1][0]), str(row[0][1][1])), row[0][0][0][0][0])).collect()
+neighbourhoodPolygons = OrderedDict()
+for neighbourhood in neighbourhoodsDF:
+	neighbourhoodPolygons[neighbourhood[0]] = Polygon(neighbourhood[1])
+
+def assignNeighbourhoodForListing(longitude, latitude, neighbourhoodPolygons = neighbourhoodPolygons):
+	listingPoint = Point(float(longitude), float(latitude))
+	for neighbourhood in neighbourhoodPolygons:
+		if neighbourhoodPolygons[neighbourhood].contains(listingPoint):
+			return str(neighbourhood[0])
+	return ""
+
+assignNeighbourhoodForListingUDF = udf(assignNeighbourhoodForListing, StringType())
+
+listingsDF = listingsDF.where(listingsDF.city == "Seattle").select("id", "city", listingsDF.latitude.cast("float").alias("latitude"), listingsDF.longitude.cast("float").alias("longitude"))
+neighbourhoodListingsDF = listingsDF.withColumn("neighbourhood", assignNeighbourhoodForListingUDF(listingsDF.longitude, listingsDF.latitude)).select("id", "neighbourhood", "city")
+
+#To get percentage and rows that were different from both sets after classification.
+'''
+myNeighbourhoodRowsDifferenceDF = neighbourhoodListingsDF.subtract(neighbourhoodTestDF).selectExpr("id as my_id", "neighbourhood as my_neighbourhood", "city as my_city")
+testNeighbourhoodRowsDifferenceDF = neighbourhoodTestDF.subtract(neighbourhoodListingsDF).selectExpr("id as test_id", "neighbourhood as test_neighbourhood", "city as test_city")
+differentRowsDF = myNeighbourhoodRowsDifferenceDF.join(testNeighbourhoodRowsDifferenceDF, myNeighbourhoodRowsDifferenceDF.my_id == testNeighbourhoodRowsDifferenceDF.test_id).select("my_id", "my_neighbourhood", "test_neighbourhood")
+differentRowsDF.rdd.sortBy(lambda x: x[1]).coalesce(1).saveAsTextFile("differenceInNeighbourhoodsResults")
+differentRowsDF = myNeighbourhoodRowsDifferenceDF.join(testNeighbourhoodRowsDifferenceDF, myNeighbourhoodRowsDifferenceDF.my_id == testNeighbourhoodRowsDifferenceDF.test_id).select("my_id", "my_neighbourhood", "test_neighbourhood").collect()
+print differentRowsDF
+#print str(((float(neighbourhoodListingsDF.count()) - float(differentRowsDF.count())) / float(neighbourhoodListingsDF.count())) * 100) + "% of our assignments of neighbourhood agree with the test set"
+'''
 """
