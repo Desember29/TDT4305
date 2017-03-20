@@ -3,9 +3,10 @@ from pyspark import SQLContext
 from pyspark.sql.functions import explode, udf
 from pyspark.sql.types import StringType
 from collections import OrderedDict
-from operator import add
 from shapely.geometry import Polygon, Point
 import sys
+from operator import add
+
 
 #Needed in order to remove an error message when trying to print results. Something about utf-8/ascii encoding error or the like.
 reload(sys)
@@ -49,8 +50,9 @@ def task2b():
 
 #Here we simply select the city column and collect the distinct values from each city.
 def task2c():	
-	cities = listingsDF.select("city").distinct()
-	cities.rdd.map(lambda p: unicode(p[0])).coalesce(1).saveAsTextFile("citiesResults")
+	cities = listingsDF.select("city").distinct().collect()
+	print cities
+	#cities.rdd.map(lambda p: unicode(p[0])).coalesce(1).saveAsTextFile("citiesResults")
 	
 	#On the AirBnB old dataset below was our old solution, as the cities were not normalized and were usually spelled wrongly. So we thought to extract state from the listings since state had less wrong entries and required little cleaning, then convert state (was on short form "NY") to the biggest city in the State. Then use this as the listings city. We could've also done this or something similar in the other tasks, but when we found the new normalized datasets we instead chose to simplify our work amount by using the new datasets.
 	'''
@@ -134,60 +136,16 @@ def task4c():
 	topHostIncome = topHostIncome.map(lambda x: (x[0][0],x[0][1],x[1])).toDF(['city','host_id','income'])
 	topHostIncome = topHostIncome.orderBy('income',ascending=False)
         topHostIncome = topHostIncome.rdd.map(lambda x: (x.city,(x.host_id,x.income))).groupByKey().mapValues(lambda x: [r for r, _ in sorted(x, key=lambda a: -a[1])[:3]]).collect()
-
-
         print topHostIncome
-	
-        
-"""
-	topHostIncome = topHostIncome.rdd.groupBy(lambda x: x[0]).map(lambda x: (x[0], list(x[1]))).collect()
-	
-	topHostPerCity = OrderedDict()
-	
-	for city in topHostIncome:
-		for n in range(3):
-			if city[0] in topHostPerCity:
-				topHostPerCity[city[0]].append(city[1][n])
-			else:
-				topHostPerCity[city[0]] = [city[1][n]]
-	
-	print topHostPerCity
-"""
+
 
 
 #Here we first join the listingsDF and reviewsDF by their listing_ids. We then create a mapping with city and reviewer_id as key and a integer 1 as a count. We then reduce by key and get the count of bookings per reviewer per city. We then map the values so we have city as the only key, with reviewer_id and count as the value. We sort by the count value in descending order. Then we group by the city key and collect the results. We then loop through each city and gather the first 3 entries, which is the top 3 reviewers per city. Then we write the results from that operation to file.
 def task5a():	
 	#topGuestsRDD = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("city", "reviewer_id").rdd.map(lambda row: ((row.city, int(row.reviewer_id)), 1)).reduceByKey(lambda x, y: x + y).map(lambda x: (x[0][0], (x[0][1], x[1]))).sortBy(lambda x: -x[1][1]).groupByKey().mapValues(list).collect()
-        topGuestsRDD = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("city", "reviewer_id").rdd.map(lambda row: ((row.city, int(row.reviewer_id)), 1)).reduceByKey(lambda x, y: x + y).map(lambda x: (x[0][0], (x[0][1], x[1]))).sortBy(lambda x: -x[1][1]).groupByKey().mapValues(lambda x: [r for r, _ in sorted(x, key=lambda a: -a[1])[:3]]).collect()
-        print topGuestsRDD
-	"""
-	topGuestsByCity = OrderedDict()
-	
-	for city in topGuestsRDD:
-		for n in range(3):
-			if city[0] in topGuestsByCity:
-				topGuestsByCity[city[0]].append(city[1][n])
-			else:
-				topGuestsByCity[city[0]] = [city[1][n]]
-	
-	#Test reviewer_id used to test results.
-	#.where(reviewsDF.reviewer_id == "7107853")
-	"""
-	"""
-	#The following code is for writing to file
-	import csv
-	
-	keys, values = [], []
-	
-	for key, value in topGuestsByCity.items():
-	    keys.append(key)
-	    values.append(value)       
-	
-	with open("task5a.csv", "w") as outfile:
-	    csvwriter = csv.writer(outfile)
-	    for n in range(len(keys)):
-	        csvwriter.writerow([keys[n],values[n][0],values[n][1],values[n][2],])
-"""
+        topGuestsRDD = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("city", "reviewer_id").rdd.map(lambda row: ((row.city, int(row.reviewer_id)), 1)).reduceByKey(lambda x, y: x + y).map(lambda x: (x[0][0], (x[0][1], x[1]))).sortBy(lambda x: -x[1][1]).groupByKey().mapValues(lambda x: [r for r, _ in sorted(x, key=lambda a: -a[1])[:3]]).map(lambda x: (x[0],x[1][0],x[1][1],x[1][2]))
+        topGuestsRDD.toDF().coalesce(1).write.csv('task5a2.csv')
+
 #We do almost the same as the previous task except we use listing_id instead of city and we also include price to the operations. We then sum up all the prices for each reviewer_id and listing _id key pair. After that we remove the listing id from the RDD, and sum up the total money spent per reviewer on booking and select the highest spender.
 def task5b():
 	biggestSpender = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("reviewer_id", "listing_id", "price").rdd.map(lambda row: ((int(row.reviewer_id), int(row.listing_id)), float("".join(c for c in row.price if c not in "$,")) * 3)).reduceByKey(lambda x, y: x + y).map(lambda x: (x[0][0], x[1])).reduceByKey(lambda x, y: x + y).top(1, key = lambda x: x[1])
@@ -230,15 +188,13 @@ def task6a():
 	print differentRowsDF.collect()
 	print str(((float(neighbourhoodListingsDF.count()) - float(differentRowsDF.count())) / float(neighbourhoodListingsDF.count())) * 100) + "% of our assignments of neighbourhood agree with the test set"
 
-#TODO: Thomas fyll inn og ordne
+#TODO: Here we add the neighbourhood to all the listings. We then select only amenities and neighbourhood for each row. Then we strip all { } and " characters from the string. After that we flatMapValues the amenities as a comma seperated string, only select the distinct values. Sort these values and then group by key. Then we simply convert the value list as a comma seperated string.
 def task6b():
 	listingsDFTemp = listingsDF.where(listingsDF.city == "Seattle").select("id", "amenities", listingsDF.latitude.cast("float").alias("latitude"), listingsDF.longitude.cast("float").alias("longitude"))
-	neighbourhoodListingsDF = listingsDFTemp.withColumn("neighbourhood", assignNeighbourhoodForListingUDF(listingsDFTemp.longitude, listingsDFTemp.latitude)).select("neighbourhood", "amenities").collect()
-	print neighbourhoodListingsDF
+	neighbourhoodListingsDF = listingsDFTemp.withColumn("neighbourhood", assignNeighbourhoodForListingUDF(listingsDFTemp.longitude, listingsDFTemp.latitude)).select("neighbourhood", "amenities").na.drop().rdd.map(lambda x: (x[0], "".join(c for c in x[1] if c not in "{}\""))).flatMapValues(lambda x: x.split(",")).distinct().sortBy(lambda x: x[1]).groupByKey().map(lambda x: (x[0], ','.join(str(s) for s in x[1])))
+	neighbourhoodListingsDF.toDF().coalesce(1).write.csv('task6b.csv')
 
 
 #This is a sample function to write a csv used to visualize price of a sample of listings, as explained in the description
 def task1_3_1():
         priceOfListing = listingsDF.select("latitude","longitude","price", "name").rdd.toDF(["lat","lon","price","name"]).coalesce(1).write.csv('task1_3_1.csv', header=True)
-
-task5a()
