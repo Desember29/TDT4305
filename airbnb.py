@@ -221,8 +221,10 @@ def task6a():
 	print differentRowsDF.collect()
 	print str(((float(neighbourhoodListingsDF.count()) - float(differentRowsDF.count())) / float(neighbourhoodListingsDF.count())) * 100) + "% of our assignments of neighbourhood agree with the test set"
 
-#TODO: Thomas fyll inn og ordne
+#TODO: Here we add the neighbourhood to all the listings. We then select only amenities and neighbourhood for each row. Then we strip all { } and " characters from the string. After that we flatMapValues the amenities as a comma seperated string, only select the distinct values. Sort these values and then group by key. Then we simply convert the value list as a comma seperated string.
 def task6b():
 	listingsDFTemp = listingsDF.where(listingsDF.city == "Seattle").select("id", "amenities", listingsDF.latitude.cast("float").alias("latitude"), listingsDF.longitude.cast("float").alias("longitude"))
-	neighbourhoodListingsDF = listingsDFTemp.withColumn("neighbourhood", assignNeighbourhoodForListingUDF(listingsDFTemp.longitude, listingsDFTemp.latitude)).select("neighbourhood", "amenities").na.drop().rdd.map(lambda x: (x[0], "".join(c for c in x[1] if c not in "{}\""))).flatMapValues(lambda x: x.split(",")).distinct().groupByKey().map(lambda x: (x[0], ','.join(str(s) for s in x[1])))
+	neighbourhoodListingsDF = listingsDFTemp.withColumn("neighbourhood", assignNeighbourhoodForListingUDF(listingsDFTemp.longitude, listingsDFTemp.latitude)).select("neighbourhood", "amenities").na.drop().rdd.map(lambda x: (x[0], "".join(c for c in x[1] if c not in "{}\""))).flatMapValues(lambda x: x.split(",")).distinct().sortBy(lambda x: x[1]).groupByKey().map(lambda x: (x[0], ','.join(str(s) for s in x[1])))
 	neighbourhoodListingsDF.toDF().coalesce(1).write.csv('task6b.csv')
+	
+task6b()
