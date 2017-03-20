@@ -133,6 +133,13 @@ def task4c():
 	topHostIncome = topHostIncome.map(lambda x: ((x[0][0],x[0][1]),x[1])).reduceByKey(add)
 	topHostIncome = topHostIncome.map(lambda x: (x[0][0],x[0][1],x[1])).toDF(['city','host_id','income'])
 	topHostIncome = topHostIncome.orderBy('income',ascending=False)
+        topHostIncome = topHostIncome.rdd.map(lambda x: (x.city,(x.host_id,x.income))).groupByKey().mapValues(lambda x: [r for r, _ in sorted(x, key=lambda a: -a[1])[:3]]).collect()
+
+
+        print topHostIncome
+	
+        
+"""
 	topHostIncome = topHostIncome.rdd.groupBy(lambda x: x[0]).map(lambda x: (x[0], list(x[1]))).collect()
 	
 	topHostPerCity = OrderedDict()
@@ -145,13 +152,15 @@ def task4c():
 				topHostPerCity[city[0]] = [city[1][n]]
 	
 	print topHostPerCity
-
+"""
 
 
 #Here we first join the listingsDF and reviewsDF by their listing_ids. We then create a mapping with city and reviewer_id as key and a integer 1 as a count. We then reduce by key and get the count of bookings per reviewer per city. We then map the values so we have city as the only key, with reviewer_id and count as the value. We sort by the count value in descending order. Then we group by the city key and collect the results. We then loop through each city and gather the first 3 entries, which is the top 3 reviewers per city. Then we write the results from that operation to file.
 def task5a():	
-	topGuestsRDD = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("city", "reviewer_id").rdd.map(lambda row: ((row.city, int(row.reviewer_id)), 1)).reduceByKey(lambda x, y: x + y).map(lambda x: (x[0][0], (x[0][1], x[1]))).sortBy(lambda x: -x[1][1]).groupByKey().mapValues(list).collect()
-	
+	#topGuestsRDD = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("city", "reviewer_id").rdd.map(lambda row: ((row.city, int(row.reviewer_id)), 1)).reduceByKey(lambda x, y: x + y).map(lambda x: (x[0][0], (x[0][1], x[1]))).sortBy(lambda x: -x[1][1]).groupByKey().mapValues(list).collect()
+        topGuestsRDD = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("city", "reviewer_id").rdd.map(lambda row: ((row.city, int(row.reviewer_id)), 1)).reduceByKey(lambda x, y: x + y).map(lambda x: (x[0][0], (x[0][1], x[1]))).sortBy(lambda x: -x[1][1]).groupByKey().mapValues(lambda x: [r for r, _ in sorted(x, key=lambda a: -a[1])[:3]]).collect()
+        print topGuestsRDD
+	"""
 	topGuestsByCity = OrderedDict()
 	
 	for city in topGuestsRDD:
@@ -163,7 +172,8 @@ def task5a():
 	
 	#Test reviewer_id used to test results.
 	#.where(reviewsDF.reviewer_id == "7107853")
-	
+	"""
+	"""
 	#The following code is for writing to file
 	import csv
 	
@@ -176,8 +186,8 @@ def task5a():
 	with open("task5a.csv", "w") as outfile:
 	    csvwriter = csv.writer(outfile)
 	    for n in range(len(keys)):
-	        csvwriter.writerow([keys[n],values[n]])
-
+	        csvwriter.writerow([keys[n],values[n][0],values[n][1],values[n][2],])
+"""
 #We do almost the same as the previous task except we use listing_id instead of city and we also include price to the operations. We then sum up all the prices for each reviewer_id and listing _id key pair. After that we remove the listing id from the RDD, and sum up the total money spent per reviewer on booking and select the highest spender.
 def task5b():
 	biggestSpender = reviewsDF.join(listingsDF, reviewsDF.listing_id == listingsDF.id).select("reviewer_id", "listing_id", "price").rdd.map(lambda row: ((int(row.reviewer_id), int(row.listing_id)), float("".join(c for c in row.price if c not in "$,")) * 3)).reduceByKey(lambda x, y: x + y).map(lambda x: (x[0][0], x[1])).reduceByKey(lambda x, y: x + y).top(1, key = lambda x: x[1])
@@ -225,3 +235,10 @@ def task6b():
 	listingsDFTemp = listingsDF.where(listingsDF.city == "Seattle").select("id", "amenities", listingsDF.latitude.cast("float").alias("latitude"), listingsDF.longitude.cast("float").alias("longitude"))
 	neighbourhoodListingsDF = listingsDFTemp.withColumn("neighbourhood", assignNeighbourhoodForListingUDF(listingsDFTemp.longitude, listingsDFTemp.latitude)).select("neighbourhood", "amenities").collect()
 	print neighbourhoodListingsDF
+
+
+#This is a sample function to write a csv used to visualize price of a sample of listings, as explained in the description
+def task1_3_1():
+        priceOfListing = listingsDF.select("latitude","longitude","price", "name").rdd.toDF(["lat","lon","price","name"]).coalesce(1).write.csv('task1_3_1.csv', header=True)
+
+task5a()
