@@ -226,5 +226,3 @@ def task6b():
 	listingsDFTemp = listingsDF.where(listingsDF.city == "Seattle").select("id", "amenities", listingsDF.latitude.cast("float").alias("latitude"), listingsDF.longitude.cast("float").alias("longitude"))
 	neighbourhoodListingsDF = listingsDFTemp.withColumn("neighbourhood", assignNeighbourhoodForListingUDF(listingsDFTemp.longitude, listingsDFTemp.latitude)).select("neighbourhood", "amenities").na.drop().rdd.map(lambda x: (x[0], "".join(c for c in x[1] if c not in "{}\""))).flatMapValues(lambda x: x.split(",")).distinct().sortBy(lambda x: x[1]).groupByKey().map(lambda x: (x[0], ','.join(str(s) for s in x[1])))
 	neighbourhoodListingsDF.toDF().coalesce(1).write.csv('task6b.csv')
-	
-task6b()
