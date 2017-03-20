@@ -3,9 +3,11 @@ from pyspark import SQLContext
 from pyspark.sql.functions import explode, udf
 from pyspark.sql.types import StringType
 from collections import OrderedDict
-from operator import add
 from shapely.geometry import Polygon, Point
 import sys
+from operator import add
+import csv
+
 
 #Needed in order to remove an error message when trying to print results. Something about utf-8/ascii encoding error or the like.
 reload(sys)
@@ -49,8 +51,9 @@ def task2b():
 
 #Here we simply select the city column and collect the distinct values from each city.
 def task2c():	
-	cities = listingsDF.select("city").distinct()
-	cities.rdd.map(lambda p: unicode(p[0])).coalesce(1).saveAsTextFile("citiesResults")
+	cities = listingsDF.select("city").distinct().collect()
+	print cities
+	#cities.rdd.map(lambda p: unicode(p[0])).coalesce(1).saveAsTextFile("citiesResults")
 	
 	#On the AirBnB old dataset below was our old solution, as the cities were not normalized and were usually spelled wrongly. So we thought to extract state from the listings since state had less wrong entries and required little cleaning, then convert state (was on short form "NY") to the biggest city in the State. Then use this as the listings city. We could've also done this or something similar in the other tasks, but when we found the new normalized datasets we instead chose to simplify our work amount by using the new datasets.
 	'''
@@ -164,9 +167,7 @@ def task5a():
 	#Test reviewer_id used to test results.
 	#.where(reviewsDF.reviewer_id == "7107853")
 	
-	#The following code is for writing to file
-	import csv
-	
+	#The following code is for writing to file	
 	keys, values = [], []
 	
 	for key, value in topGuestsByCity.items():
@@ -223,5 +224,5 @@ def task6a():
 #TODO: Thomas fyll inn og ordne
 def task6b():
 	listingsDFTemp = listingsDF.where(listingsDF.city == "Seattle").select("id", "amenities", listingsDF.latitude.cast("float").alias("latitude"), listingsDF.longitude.cast("float").alias("longitude"))
-	neighbourhoodListingsDF = listingsDFTemp.withColumn("neighbourhood", assignNeighbourhoodForListingUDF(listingsDFTemp.longitude, listingsDFTemp.latitude)).select("neighbourhood", "amenities").collect()
-	print neighbourhoodListingsDF
+	neighbourhoodListingsDF = listingsDFTemp.withColumn("neighbourhood", assignNeighbourhoodForListingUDF(listingsDFTemp.longitude, listingsDFTemp.latitude)).select("neighbourhood", "amenities").na.drop().rdd.map(lambda x: (x[0], "".join(c for c in x[1] if c not in "{}\""))).flatMapValues(lambda x: x.split(",")).distinct().groupByKey().map(lambda x: (x[0], ','.join(str(s) for s in x[1])))
+	neighbourhoodListingsDF.toDF().coalesce(1).write.csv('task6b.csv')
