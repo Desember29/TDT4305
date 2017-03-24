@@ -18,11 +18,11 @@ sc = SparkContext(conf=conf)
 sqlContext = SQLContext(sc)
 
 #Relative path for datasets.
-calLoc = "airbnb_datasets/calendar_us.csv"
-lisLoc = "airbnb_datasets/listings_us.csv"
-neighTestLoc = "airbnb_datasets/neighborhood_test.csv"
-neighLoc = "airbnb_datasets/neighbourhoods.geojson"
-revLoc = "airbnb_datasets/reviews_us.csv"
+calLoc = "../airbnb_datasets/calendar_us.csv"
+lisLoc = "../airbnb_datasets/listings_us.csv"
+neighTestLoc = "../airbnb_datasets/neighborhood_test.csv"
+neighLoc = "../airbnb_datasets/neighbourhoods.geojson"
+revLoc = "../airbnb_datasets/reviews_us.csv"
 
 #Read all the datasets as dataframes, as tab seperated and with headers.
 calendarDF = sqlContext.read.csv(calLoc, sep="\t", header=True)
