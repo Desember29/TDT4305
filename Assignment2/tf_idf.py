@@ -44,6 +44,12 @@ def listingTF(listingID):
 	listingTFList = listingTermsRDD.reduceByKey(add).map(lambda x: (x[0], x[1] / totalNumberOfTerms)).takeOrdered(100, key = lambda x: -x[1])
 	sc.parallelize(listingTFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile(listingID + " TF")
 
+def neighbourhoodTF_IDF(neighbourhood):
+	neighbourhoodTermsDF = listingsDF.where(listingsDF.neighbourhood == neighbourhood).select("id", "description")
+	totalNumberOfDocuments = float(neighbourhoodTermsDF.count())
+	neighbourhoodTermsRDD = neighbourhoodTermsDF.rdd.map(lambda x: (x.id, re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip())).flatMapValues(lambda x: x.split(" ")).map(lambda x: ((x[0], x[1]), 1)).reduceByKey(add).map(lambda x: (x[0][0], (x[0][1], x[1]))).reduceByKey(add).collect()
+	print neighbourhoodTermsRDD
+
 if (sys.argv[1] == "-l"):
 	listingID = sys.argv[2]
 	if (listingID.isdigit()):
@@ -52,8 +58,9 @@ if (sys.argv[1] == "-l"):
 		print "Listing_id has to be an integer!"
 
 elif (sys.argv[1] == "-n"):
-	print "Tried to run with neighbourhood! Not yet finished!"
+	neighbourhoodTF_IDF(sys.argv[2])
 
+#.where(listingsDF.neighbourhood = "Tompkinsville")
 #.where(listingsDF.id == "12567614")
 #.where(listingsDF.id == "8342998")
 #listingsDescriptionDF = .select("id", "description").rdd.map(lambda x: (x.id, re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip())).flatMapValues(lambda x: x.split(" ")).map(lambda x: ((x[0], x[1]), 1)).foldByKey(0, add).map(lambda x: (x[0][0], (x[0][1], x[1]))).reduceByKey(lambda x, y: x + y).take(5)
