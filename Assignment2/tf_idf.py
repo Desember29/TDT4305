@@ -41,14 +41,16 @@ listingsWithNeighbourhoodsDF.printSchema()
 def listingTF(listingID):
 	listingTermsRDD = listingsDF.where(listingsDF.id == listingID).select("description").rdd.map(lambda x: re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip()).flatMap(lambda x: x.split(" ")).map(lambda word: (word, 1))
 	totalNumberOfTerms = float(listingTermsRDD.count())
+	print totalNumberOfTerms
 	listingTFList = listingTermsRDD.reduceByKey(add).map(lambda x: (x[0], x[1] / totalNumberOfTerms)).takeOrdered(100, key = lambda x: -x[1])
 	sc.parallelize(listingTFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile(listingID + " TF")
 
 def neighbourhoodTF_IDF(neighbourhood):
 	neighbourhoodTermsDF = listingsDF.where(listingsDF.neighbourhood == neighbourhood).select("id", "description")
 	totalNumberOfDocuments = float(neighbourhoodTermsDF.count())
-	neighbourhoodTermsRDD = neighbourhoodTermsDF.rdd.map(lambda x: (x.id, re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip())).flatMapValues(lambda x: x.split(" ")).map(lambda x: ((x[0], x[1]), 1)).reduceByKey(add).map(lambda x: (x[0][0], (x[0][1], x[1]))).reduceByKey(add).collect()
+	neighbourhoodTermsRDD = neighbourhoodTermsDF.rdd.map(lambda x: (x.id, re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip())).flatMapValues(lambda x: x.split(" ")).map(lambda x: (x[0], x[1])).combineByKey(lambda value: (value, 1), lambda x, value: (x[0] + " " + value, x[1] + 1), lambda x, y: (x[0] + y[0], x[1] + y[1])).map(lambda x: ((x[0], float(x[1][1])), x[1][0])).flatMapValues(lambda x: x.split(" ")).map(lambda x: ((x[0][0], x[0][1], x[1]), 1)).reduceByKey(add).map(lambda x: (x[0][0], x[0][2], x[1] / x[0][1])).collect()
 	print neighbourhoodTermsRDD
+	#.combineByKey(lambda value: (value, 1), lambda x, value: (x[0] + value, x[1] + 1), lambda x, y: (x[0] + y[0], x[1] + y[1]))
 
 if (sys.argv[1] == "-l"):
 	listingID = sys.argv[2]
