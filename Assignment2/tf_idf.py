@@ -38,40 +38,48 @@ listingsDF.printSchema()
 listingsWithNeighbourhoodsDF.printSchema()
 """
 
-def listingTF(listingID):
+#IDF for all terms for all documents in listingsDF.
+termsIDF_DF = listingsDF.select("id", "description")
+totalNumberOfDocuments = float(termsIDF_DF.count())
+termsIDF_RDD = termsIDF_DF.rdd.map(lambda x: (x.id, re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip())).flatMapValues(lambda x: x.split(" ")).distinct().map(lambda x: (x[1], 1)).reduceByKey(add).map(lambda x: (x[0], totalNumberOfDocuments / x[1]))
+termsIDF_DF = sqlContext.createDataFrame(termsIDF_RDD, ("term", "idf"))
+
+def listingTF_IDF(listingID):
 	listingTermsRDD = listingsDF.where(listingsDF.id == listingID).select("description").rdd.map(lambda x: re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip()).flatMap(lambda x: x.split(" ")).map(lambda word: (word, 1))
 	totalNumberOfTerms = float(listingTermsRDD.count())
-	print totalNumberOfTerms
-	listingTFList = listingTermsRDD.reduceByKey(add).map(lambda x: (x[0], x[1] / totalNumberOfTerms)).takeOrdered(100, key = lambda x: -x[1])
-	sc.parallelize(listingTFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile(listingID + " TF")
+	listingTF_RDD = listingTermsRDD.reduceByKey(add).map(lambda x: (x[0], x[1] / totalNumberOfTerms))
+	listingTF_IDFList = sqlContext.createDataFrame(listingTF_RDD, ("term", "tf")).join(termsIDF_DF, "term").rdd.map(lambda x: (x[0], x[1] * x[2])).takeOrdered(100, key = lambda x: -x[1])
+	sc.parallelize(listingTF_IDFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile(listingID + " TF-IDF")
 
 def neighbourhoodTF_IDF(neighbourhood):
 	neighbourhoodTermsDF = listingsDF.where(listingsDF.neighbourhood == neighbourhood).select("id", "description")
-	totalNumberOfDocuments = float(neighbourhoodTermsDF.count())
-	neighbourhoodTermsRDD = neighbourhoodTermsDF.rdd.map(lambda x: (x.id, re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip())).flatMapValues(lambda x: x.split(" ")).map(lambda x: (x[0], x[1])).combineByKey(lambda value: (value, 1), lambda x, value: (x[0] + " " + value, x[1] + 1), lambda x, y: (x[0] + y[0], x[1] + y[1])).map(lambda x: ((x[0], float(x[1][1])), x[1][0])).flatMapValues(lambda x: x.split(" ")).map(lambda x: ((x[0][0], x[0][1], x[1]), 1)).reduceByKey(add).map(lambda x: (x[0][0], x[0][2], x[1] / x[0][1])).collect()
-	print neighbourhoodTermsRDD
-	#.combineByKey(lambda value: (value, 1), lambda x, value: (x[0] + value, x[1] + 1), lambda x, y: (x[0] + y[0], x[1] + y[1]))
+	neighbourhoodTermsTF_RDD = neighbourhoodTermsDF.rdd.map(lambda x: (x.id, re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip())).flatMapValues(lambda x: x.split(" ")).map(lambda x: (x[0], x[1])).combineByKey(lambda value: (value, 1), lambda x, value: (x[0] + " " + value, x[1] + 1), lambda x, y: (x[0] + y[0], x[1] + y[1])).map(lambda x: ((x[0], float(x[1][1])), x[1][0])).flatMapValues(lambda x: x.split(" ")).map(lambda x: ((x[0][0], x[0][1], x[1]), 1)).reduceByKey(add).map(lambda x: (x[0][0], x[0][2], x[1] / x[0][1]))
+	neighbourhoodTermsTF_IDFList = sqlContext.createDataFrame(neighbourhoodTermsTF_RDD, ("id", "term", "tf")).join(termsIDF_DF, "term").rdd.map(lambda x: (x[0], x[2] * x[3])).combineByKey(lambda value: (value, 1), lambda x, value: (x[0] + value, x[1] + 1), lambda x, y: (x[0] + y[0], x[1] + y[1])).map(lambda x: (x[0], x[1][0] / x[1][1])).takeOrdered(100, key = lambda x: -x[1])
+	sc.parallelize(neighbourhoodTermsTF_IDFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile(neighbourhood + " TF-IDF")
+
 
 if (sys.argv[1] == "-l"):
 	listingID = sys.argv[2]
 	if (listingID.isdigit()):
-		listingTF(listingID)
+		listingTF_IDF(listingID)
 	else:
 		print "Listing_id has to be an integer!"
 
 elif (sys.argv[1] == "-n"):
 	neighbourhoodTF_IDF(sys.argv[2])
 
-#.where(listingsDF.neighbourhood = "Tompkinsville")
-#.where(listingsDF.id == "12567614")
-#.where(listingsDF.id == "8342998")
-#listingsDescriptionDF = .select("id", "description").rdd.map(lambda x: (x.id, re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip())).flatMapValues(lambda x: x.split(" ")).map(lambda x: ((x[0], x[1]), 1)).foldByKey(0, add).map(lambda x: (x[0][0], (x[0][1], x[1]))).reduceByKey(lambda x, y: x + y).take(5)
-#print listingsDescriptionDF
-
+#TODO: slett testkoden/rester av skjelettkode under før levering.
+"""
+#.combineByKey(lambda value: (value, 1), lambda x, value: (x[0] + value, x[1] + 1), lambda x, y: (x[0] + y[0], x[1] + y[1]))
+.where(listingsDF.neighbourhood = "Tompkinsville")
+.where(listingsDF.id == "12567614")
+.where(listingsDF.id == "8342998")
+listingsDescriptionDF = .select("id", "description").rdd.map(lambda x: (x.id, re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip())).flatMapValues(lambda x: x.split(" ")).map(lambda x: ((x[0], x[1]), 1)).foldByKey(0, add).map(lambda x: (x[0][0], (x[0][1], x[1]))).reduceByKey(lambda x, y: x + y).take(5)
+print listingsDescriptionDF
 
 print("TF-IDF Assignment")
 file = sc.textFile("data.txt").cache()
 print("File has " + str(file.count()) + " lines.")
 print("Passed arguments " + str(sys.argv))
-
+"""
 sc.stop()
