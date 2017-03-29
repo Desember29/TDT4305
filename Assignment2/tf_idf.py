@@ -86,6 +86,8 @@ if (sys.argv[2] == "-l"):
 elif (sys.argv[2] == "-n"):
 	neighbourhoodTF_IDF(sys.argv[3])
 
+
+#TODO: Cleanup testing code from below
 """
 #.combineByKey(lambda value: (value, 1), lambda x, value: (x[0] + value, x[1] + 1), lambda x, y: (x[0] + y[0], x[1] + y[1]))
 .where(listingsDF.neighbourhood = "Tompkinsville")
