@@ -77,15 +77,17 @@ relevantAlternativeListingsTempDF = availableOnDateDF.join(relevantAlternativeLi
 relevantAlternativeListingsDF = relevantAlternativeListingsTempDF.withColumn("distance", haversineUDF(relevantAlternativeListingsTempDF.longitude, relevantAlternativeListingsTempDF.latitude)).withColumn("common_amenities", countCommonAmenitiesUDF(relevantAlternativeListingsTempDF.amenities))
 #Filter out listings that are out of the range specified. Then map the listings according to the way the assignment specified. Then take top n listings ordered by descending value of common amenities.
 relevantAlternativeListingsList = relevantAlternativeListingsDF.where(relevantAlternativeListingsDF.distance < sys.argv[4]).rdd.map(lambda x: (x[0], x[1], x[7], x[6], x[5])).takeOrdered(int(sys.argv[5]), key = lambda x: -x[2])
+
 #Create a dataframe so we can save the results as a file.
 sc.parallelize(relevantAlternativeListingsList).map(lambda x: (str(x[0]) + "\t" + x[1] + "\t" + str(x[2]) + "\t" + str(x[3]) + "\t" + str(x[4]))).saveAsTextFile("alternatives")
 
 
 #Just used to create the file we used to visualize this task.
 def visualization():
-	relevantAlternativeListingsRDD = listingsDF.where((listingsDF.id != listingID) & (listingsDF.room_type == chosenListing[0][3])).select("amenities", "id", "latitude", "longitude", "name", "price", "host_name", "review_scores_rating").rdd.map(lambda x: (x[1], x[4], re.sub("[^0-9a-z,'/ \-]", "", x[0].lower()).split(","), float(x[2]), float(x[3]), float(re.sub("[^0-9.]", "", x[5])), x[6], x[7])).filter(lambda x: x[5] <= (maxPrice)).map(lambda x: (x[0], x[1], x[3], x[4], x[2], x[5], x[6], x[7]))
+	relevantAlternativeListingsRDD = listingsDF.where((listingsDF.room_type == chosenListing[0][3])).select("amenities", "id", "latitude", "longitude", "name", "price", "host_name", "review_scores_rating").rdd.map(lambda x: (x[1], x[4], re.sub("[^0-9a-z,'/ \-]", "", x[0].lower()).split(","), float(x[2]), float(x[3]), float(re.sub("[^0-9.]", "", x[5])), x[6], x[7])).filter(lambda x: x[5] <= (maxPrice)).map(lambda x: (x[0], x[1], x[3], x[4], x[2], x[5], x[6], x[7]))
 	relevantAlternativeListingsDF = sqlContext.createDataFrame(relevantAlternativeListingsRDD, ("listing_id", "name", "latitude", "longitude", "amenities", "price", "host_name", "review_scores_rating"))
 	relevantAlternativeListingsTempDF = availableOnDateDF.join(relevantAlternativeListingsDF, "listing_id")
 	relevantAlternativeListingsDF = relevantAlternativeListingsTempDF.withColumn("distance", haversineUDF(relevantAlternativeListingsTempDF.longitude, relevantAlternativeListingsTempDF.latitude)).withColumn("common_amenities", countCommonAmenitiesUDF(relevantAlternativeListingsTempDF.amenities))
 	relevantAlternativeListingsList = relevantAlternativeListingsDF.where(relevantAlternativeListingsDF.distance < sys.argv[4]).rdd.map(lambda x: (x[0], x[1], x[9], x[8], x[5], x[2], x[3], x[6], x[7])).takeOrdered(int(sys.argv[5]), key = lambda x: -x[2])
-	sc.parallelize(relevantAlternativeListingsList).map(lambda x: (str(x[0]) + "\t" + x[1] + "\t" + str(x[2]) + "\t" + str(x[3]) + "\t" + str(x[4]) + "\t" + str(x[5]) + "\t" + str(x[6]) + "\t" + str(x[7]) + "\t" + str(x[8]))).saveAsTextFile("Visualization")
+	sc.parallelize(relevantAlternativeListingsList).map(lambda x: (str(x[0]), x[1], str(x[2]), str(x[3]), str(x[4]), str(x[5]), str(x[6]), str(x[7]), str(x[8]))).toDF(["id", "name", "common_amenities", "distance", "price", "latitude", "longitude", "host_name", "review_scores_rating"]).coalesce(1).write.csv("Visualization", header=True)#.saveAsTextFile("Visualization")
+visualization()
