@@ -65,7 +65,7 @@ countCommonAmenitiesUDF = udf(countCommonAmenities, IntegerType())
 
 #Get all listings that are available on the date specified. So we can join at a later date and filter out unavailable listings.
 availableOnDateDF = calendarDF.where((calendarDF.available == "t") & (calendarDF.date == sys.argv[2])).select("listing_id")
-"""
+
 #Select all listings that aren't the specified listing, and remove all that aren't the same room_type. Then clean up the dataset. Filter out listings that exceed max price. Then remap fields position and remove unecessary fields.
 relevantAlternativeListingsRDD = listingsDF.where((listingsDF.id != listingID) & (listingsDF.room_type == chosenListing[0][3])).select("amenities", "id", "latitude", "longitude", "name", "price").rdd.map(lambda x: (x[1], x[4], re.sub("[^0-9a-z,'/ \-]", "", x[0].lower()).split(","), float(x[2]), float(x[3]), float(re.sub("[^0-9.]", "", x[5])))).filter(lambda x: x[5] <= (maxPrice)).map(lambda x: (x[0], x[1], x[3], x[4], x[2], x[5]))
 #Create a dataframe for relevant listings so we can join on it later in order to filter out listings that are not available.
@@ -79,7 +79,7 @@ relevantAlternativeListingsDF = relevantAlternativeListingsTempDF.withColumn("di
 relevantAlternativeListingsList = relevantAlternativeListingsDF.where(relevantAlternativeListingsDF.distance < sys.argv[4]).rdd.map(lambda x: (x[0], x[1], x[7], x[6], x[5])).takeOrdered(int(sys.argv[5]), key = lambda x: -x[2])
 #Create a dataframe so we can save the results as a file.
 sc.parallelize(relevantAlternativeListingsList).map(lambda x: (str(x[0]) + "\t" + x[1] + "\t" + str(x[2]) + "\t" + str(x[3]) + "\t" + str(x[4]))).saveAsTextFile("alternatives")
-"""
+
 
 #Just used to create the file we used to visualize this task.
 def visualization():
@@ -89,5 +89,3 @@ def visualization():
 	relevantAlternativeListingsDF = relevantAlternativeListingsTempDF.withColumn("distance", haversineUDF(relevantAlternativeListingsTempDF.longitude, relevantAlternativeListingsTempDF.latitude)).withColumn("common_amenities", countCommonAmenitiesUDF(relevantAlternativeListingsTempDF.amenities))
 	relevantAlternativeListingsList = relevantAlternativeListingsDF.where(relevantAlternativeListingsDF.distance < sys.argv[4]).rdd.map(lambda x: (x[0], x[1], x[9], x[8], x[5], x[2], x[3], x[6], x[7])).takeOrdered(int(sys.argv[5]), key = lambda x: -x[2])
 	sc.parallelize(relevantAlternativeListingsList).map(lambda x: (str(x[0]) + "\t" + x[1] + "\t" + str(x[2]) + "\t" + str(x[3]) + "\t" + str(x[4]) + "\t" + str(x[5]) + "\t" + str(x[6]) + "\t" + str(x[7]) + "\t" + str(x[8]))).saveAsTextFile("Visualization")
-
-visualization()
