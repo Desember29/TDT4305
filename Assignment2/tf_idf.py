@@ -39,43 +39,52 @@ listingsDF.printSchema()
 listingsWithNeighbourhoodsDF.printSchema()
 """
 
-
-
 def listingTF_IDF(listingID):
 	#IDF for all terms for all listings in listingsDF.
+	#Select relevant columns
 	termsIDF_DF = listingsDF.select("id", "description")
+	#Get total number of documents
 	totalNumberOfDocuments = float(termsIDF_DF.count())
+	#Clean the dataset, flatMapValues and distinct it so you get a proper count of number of documents with term t in it. Then simply calculate IDF for all terms.
 	termsIDF_RDD = termsIDF_DF.rdd.map(lambda x: (x.id, re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip())).flatMapValues(lambda x: x.split(" ")).distinct().map(lambda x: (x[1], 1)).reduceByKey(add).map(lambda x: (x[0], totalNumberOfDocuments / x[1]))
+	#Create a dataframe from the RDD so you can join it on term.
 	termsIDF_DF = sqlContext.createDataFrame(termsIDF_RDD, ("term", "idf"))
 	
+	#Select relevant listing, and clean it's description. Flatmap it so you can use it to get count.
 	listingTermsTF_RDD = listingsDF.where(listingsDF.id == listingID).select("description").rdd.map(lambda x: re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip()).flatMap(lambda x: x.split(" ")).map(lambda word: (word, 1))
+	#Get total number of terms in listing.
 	totalNumberOfTerms = float(listingTermsTF_RDD.count())
+	#Get count of occurances for each term, then calcualte TF for all terms in listing description.
 	listingTF_RDD = listingTermsTF_RDD.reduceByKey(add).map(lambda x: (x[0], x[1] / totalNumberOfTerms))
+	#Create a dataframe from the RDD so you can join it on term. When you've joined it calculate the weight of the term, and take top 100 terms from the TF-IDF.
 	listingTF_IDFList = sqlContext.createDataFrame(listingTF_RDD, ("term", "tf")).join(termsIDF_DF, "term").rdd.map(lambda x: (x[0], x[1] * x[2])).takeOrdered(100, key = lambda x: -x[1])
+	#Create a file of the top 100 terms.
 	sc.parallelize(listingTF_IDFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile("tf_idf_results")
 
 
 def neighbourhoodTF_IDF(neighbourhood):
 	#IDF for all terms for all neighbourhoods in listingsDF.
+	#Select relevant columns and combine the descriptions based on neighbourhood.
 	termsIDF_RDD = listingsDF.select("neighbourhood", "description").rdd.reduceByKey(add)
+	#Get total number of documents
 	totalNumberOfDocuments = float(termsIDF_RDD.distinct().count())
+	#Clean the dataset, flatMapValues and distinct it so you get a proper count of number of documents with term t in it. Then simply calculate IDF for all terms.
 	termsIDF_RDD = termsIDF_RDD.map(lambda x: (x[0], re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x[1].lower())).strip())).flatMapValues(lambda x: x.split(" ")).distinct().map(lambda x: (x[1], 1)).reduceByKey(add).map(lambda x: (x[0], totalNumberOfDocuments / x[1]))
+	#Create a dataframe from the RDD so you can join it on term.
 	termsIDF_DF = sqlContext.createDataFrame(termsIDF_RDD, ("term", "idf"))
 	
+	#Select relevant neighbourhood and combine all of it's listings descriptions. Clean it's description. Flatmap it so you can use it to get count.
 	neighbourhoodTermsTF_RDD = listingsDF.where(listingsDF.neighbourhood == neighbourhood).select("neighbourhood", "description").rdd.reduceByKey(add).map(lambda x: re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x[1].lower())).strip()).flatMap(lambda x: x.split(" ")).map(lambda word: (word, 1))
+	#Get total number of terms in listing.
 	totalNumberOfTerms = float(neighbourhoodTermsTF_RDD.count())
+	#Get count of occurances for each term, then calcualte TF for all terms in listing description.
 	neighbourhoodTermsTF_RDD = neighbourhoodTermsTF_RDD.reduceByKey(add).map(lambda x: (x[0], x[1] / totalNumberOfTerms))
+	#Create a dataframe from the RDD so you can join it on term. When you've joined it calculate the weight of the term, and take top 100 terms from the TF-IDF.
 	neighbourhoodTermsTF_IDFList = sqlContext.createDataFrame(neighbourhoodTermsTF_RDD, ("term", "tf")).join(termsIDF_DF, "term").rdd.map(lambda x: (x[0], x[1] * x[2])).takeOrdered(100, key = lambda x: -x[1])
+	#Create a file of the top 100 terms.
 	sc.parallelize(neighbourhoodTermsTF_IDFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile("tf_idf_results")
-	
-	"""
-	neighbourhoodTermsTF_RDD = listingsDF.where(listingsDF.neighbourhood == neighbourhood).select("neighbourhood", "description").rdd.reduceByKey(add)
-	neighbourhoodTermsTF_RDD = neighbourhoodTermsTF_RDD.map(lambda x: (x.id, re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip())).flatMapValues(lambda x: x.split(" ")).map(lambda x: (x[0], x[1])).combineByKey(lambda value: (value, 1), lambda x, value: (x[0] + " " + value, x[1] + 1), lambda x, y: (x[0] + y[0], x[1] + y[1])).map(lambda x: ((x[0], float(x[1][1])), x[1][0])).flatMapValues(lambda x: x.split(" ")).map(lambda x: ((x[0][0], x[0][1], x[1]), 1)).reduceByKey(add).map(lambda x: (x[0][0], x[0][2], x[1] / x[0][1]))
-	neighbourhoodTermsTF_IDFList = sqlContext.createDataFrame(neighbourhoodTermsTF_RDD, ("id", "term", "tf")).join(termsIDF_DF, "term").rdd.map(lambda x: (x[0], x[2] * x[3])).combineByKey(lambda value: (value, 1), lambda x, value: (x[0] + value, x[1] + 1), lambda x, y: (x[0] + y[0], x[1] + y[1])).map(lambda x: (x[0], x[1][0] / x[1][1])).takeOrdered(100, key = lambda x: -x[1])
-	sc.parallelize(neighbourhoodTermsTF_IDFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile(neighbourhood + " TF-IDF")
-	"""
 
-
+#Check what operation the user is asking for and call the relevant functions.
 if (sys.argv[2] == "-l"):
 	listingID = sys.argv[3]
 	if (listingID.isdigit()):
@@ -86,19 +95,4 @@ if (sys.argv[2] == "-l"):
 elif (sys.argv[2] == "-n"):
 	neighbourhoodTF_IDF(sys.argv[3])
 
-
-#TODO: Cleanup testing code from below
-"""
-#.combineByKey(lambda value: (value, 1), lambda x, value: (x[0] + value, x[1] + 1), lambda x, y: (x[0] + y[0], x[1] + y[1]))
-.where(listingsDF.neighbourhood = "Tompkinsville")
-.where(listingsDF.id == "12567614")
-.where(listingsDF.id == "8342998")
-listingsDescriptionDF = .select("id", "description").rdd.map(lambda x: (x.id, re.sub("\s+", " ", re.sub("[^0-9a-z'\-&]", " ", x.description.lower())).strip())).flatMapValues(lambda x: x.split(" ")).map(lambda x: ((x[0], x[1]), 1)).foldByKey(0, add).map(lambda x: (x[0][0], (x[0][1], x[1]))).reduceByKey(lambda x, y: x + y).take(5)
-print listingsDescriptionDF
-
-print("TF-IDF Assignment")
-file = sc.textFile("data.txt").cache()
-print("File has " + str(file.count()) + " lines.")
-print("Passed arguments " + str(sys.argv))
-"""
 sc.stop()
