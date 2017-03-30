@@ -17,14 +17,14 @@ sc.setLogLevel("ERROR")
 sqlContext = SQLContext(sc)
 
 #Path for datasets.
-"""
 listingsFileLocation = sys.argv[1] + "listings_us.csv"
 listingsWithNeighbourhoodsFileLocation = sys.argv[1] + "listings_ids_with_neighborhoods.tsv"
-"""
-												 
+
+"""									 
 #Relative path for datasets.
 listingsFileLocation = "../airbnb_datasets/listings_us.csv"
 listingsWithNeighbourhoodsFileLocation = "../airbnb_datasets/listings_ids_with_neighborhoods.tsv"
+"""
 
 #Read the datasets as dataframes that are tab seperated and with headers.
 listingsDF = sqlContext.read.csv(listingsFileLocation, sep="\t", header=True)
