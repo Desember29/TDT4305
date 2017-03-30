@@ -52,7 +52,7 @@ def listingTF_IDF(listingID):
 	totalNumberOfTerms = float(listingTermsTF_RDD.count())
 	listingTF_RDD = listingTermsTF_RDD.reduceByKey(add).map(lambda x: (x[0], x[1] / totalNumberOfTerms))
 	listingTF_IDFList = sqlContext.createDataFrame(listingTF_RDD, ("term", "tf")).join(termsIDF_DF, "term").rdd.map(lambda x: (x[0], x[1] * x[2])).takeOrdered(100, key = lambda x: -x[1])
-	sc.parallelize(listingTF_IDFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile(listingID + " TF-IDF")
+	sc.parallelize(listingTF_IDFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile("tf_idf_results")
 
 
 def neighbourhoodTF_IDF(neighbourhood):
@@ -66,7 +66,7 @@ def neighbourhoodTF_IDF(neighbourhood):
 	totalNumberOfTerms = float(neighbourhoodTermsTF_RDD.count())
 	neighbourhoodTermsTF_RDD = neighbourhoodTermsTF_RDD.reduceByKey(add).map(lambda x: (x[0], x[1] / totalNumberOfTerms))
 	neighbourhoodTermsTF_IDFList = sqlContext.createDataFrame(neighbourhoodTermsTF_RDD, ("term", "tf")).join(termsIDF_DF, "term").rdd.map(lambda x: (x[0], x[1] * x[2])).takeOrdered(100, key = lambda x: -x[1])
-	sc.parallelize(neighbourhoodTermsTF_IDFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile(neighbourhood + " TF-IDF")
+	sc.parallelize(neighbourhoodTermsTF_IDFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile("tf_idf_results")
 	
 	"""
 	neighbourhoodTermsTF_RDD = listingsDF.where(listingsDF.neighbourhood == neighbourhood).select("neighbourhood", "description").rdd.reduceByKey(add)
