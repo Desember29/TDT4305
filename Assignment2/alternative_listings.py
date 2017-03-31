@@ -89,4 +89,3 @@ def visualization():
 	relevantAlternativeListingsDF = relevantAlternativeListingsTempDF.withColumn("distance", haversineUDF(relevantAlternativeListingsTempDF.longitude, relevantAlternativeListingsTempDF.latitude)).withColumn("common_amenities", countCommonAmenitiesUDF(relevantAlternativeListingsTempDF.amenities))
 	relevantAlternativeListingsList = relevantAlternativeListingsDF.where(relevantAlternativeListingsDF.distance < sys.argv[4]).rdd.map(lambda x: (x[0], x[1], x[9], x[8], x[5], x[2], x[3], x[6], x[7])).takeOrdered(int(sys.argv[5]) + 1, key = lambda x: -x[2])
 	sc.parallelize(relevantAlternativeListingsList).map(lambda x: (str(x[0]), x[1], str(x[2]), str(x[3]), str(x[4]), str(x[5]), str(x[6]), str(x[7]), str(x[8]))).toDF(["id", "name", "common_amenities", "distance", "price", "latitude", "longitude", "host_name", "review_scores_rating"]).coalesce(1).write.options(delimiter="\t").csv("Visualization", header=True)
-visualization()
