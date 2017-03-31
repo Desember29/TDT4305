@@ -59,7 +59,7 @@ def listingTF_IDF(listingID):
 	#Create a dataframe from the RDD so you can join it on term. When you've joined it calculate the weight of the term, and take top 100 terms from the TF-IDF.
 	listingTF_IDFList = sqlContext.createDataFrame(listingTF_RDD, ("term", "tf")).join(termsIDF_DF, "term").rdd.map(lambda x: (x[0], x[1] * x[2])).takeOrdered(100, key = lambda x: -x[1])
 	#Create a file of the top 100 terms.
-	sc.parallelize(listingTF_IDFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile("tf_idf_results")
+	sc.parallelize(listingTF_IDFList).map(lambda x: (x[0], str(x[1]))).toDF(["term", "weight"]).coalesce(1).write.options(delimiter="\t").csv("tf_idf_results", header=True)
 
 
 def neighbourhoodTF_IDF(neighbourhood):
@@ -82,7 +82,7 @@ def neighbourhoodTF_IDF(neighbourhood):
 	#Create a dataframe from the RDD so you can join it on term. When you've joined it calculate the weight of the term, and take top 100 terms from the TF-IDF.
 	neighbourhoodTermsTF_IDFList = sqlContext.createDataFrame(neighbourhoodTermsTF_RDD, ("term", "tf")).join(termsIDF_DF, "term").rdd.map(lambda x: (x[0], x[1] * x[2])).takeOrdered(100, key = lambda x: -x[1])
 	#Create a file of the top 100 terms.
-	sc.parallelize(neighbourhoodTermsTF_IDFList).map(lambda x: (x[0] + "\t" + str(x[1]))).saveAsTextFile("tf_idf_results")
+	sc.parallelize(neighbourhoodTermsTF_IDFList).map(lambda x: (x[0], str(x[1]))).toDF(["term", "weight"]).coalesce(1).write.options(delimiter="\t").csv("tf_idf_results", header=True)
 
 #Check what operation the user is asking for and call the relevant functions.
 if (sys.argv[2] == "-l"):
